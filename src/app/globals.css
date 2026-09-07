@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #121317;
+  --panel: #1B1D24;
+  --panel-raised: #22252E;
+  --border: #2C2F3A;
+  --border-strong: #3A3E4C;
+  --text: #E7E9F0;
+  --text-muted: #8A8FA3;
+  --text-faint: #5C6070;
+
+  --signal-idle: #5C6070;
+  --signal-info: #5B9DF2;
+  --signal-building: #F2A93B;
+  --signal-success: #4CAF6D;
+  --signal-danger: #E5533D;
+
+  --font-sans: -apple-system, "Segoe UI", ui-sans-serif, Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "SF Mono", "Cascadia Code", ui-monospace, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel-raised: var(--panel-raised);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
+  --color-signal-idle: var(--signal-idle);
+  --color-signal-info: var(--signal-info);
+  --color-signal-building: var(--signal-building);
+  --color-signal-success: var(--signal-success);
+  --color-signal-danger: var(--signal-danger);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+::selection {
+  background: var(--signal-info);
+  color: #0D0E12;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 0;
+}
