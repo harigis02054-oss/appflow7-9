@@ -439,6 +439,11 @@ export default function AppDetailPage({
               Store Metadata
             </Button>
           </Link>
+          <Link href={`/apps/${app.id}/testing`}>
+            <Button variant="secondary">
+              Testing & Tracks
+            </Button>
+          </Link>
           <Button
             variant="primary"
             onClick={() => setIsReleaseModalOpen(true)}
