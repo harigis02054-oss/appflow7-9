@@ -95,6 +95,32 @@ export interface GitHubCommit {
   html_url: string;
 }
 
+export interface GitHubCompareFile {
+  filename: string;
+  status: "added" | "removed" | "modified" | "renamed" | string;
+  additions: number;
+  deletions: number;
+  changes: number;
+}
+
+export interface GitHubCompareResult {
+  status: string;
+  total_commits: number;
+  commits: GitHubCommit[];
+  files: GitHubCompareFile[];
+}
+
+export async function compareCommits(
+  owner: string,
+  repo: string,
+  base: string,
+  head: string
+): Promise<GitHubCompareResult> {
+  return ghFetch<GitHubCompareResult>(
+    `/repos/${owner}/${repo}/compare/${encodeURIComponent(base)}...${encodeURIComponent(head)}`
+  );
+}
+
 export async function getCommits(
   owner: string,
   repo: string,
