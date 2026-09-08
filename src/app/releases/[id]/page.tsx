@@ -38,6 +38,16 @@ export default function ReleaseDetailPage({
   const [error, setError] = useState<string | null>(null);
   const [advancing, setAdvancing] = useState(false);
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
+  const [recoveryRec, setRecoveryRec] = useState<{
+    severity: string;
+    suggestedAction: string;
+    remediationSteps: string[];
+    previousStableRelease?: {
+      version: string;
+      buildNumber: number;
+      artifactName?: string;
+    };
+  } | null>(null);
 
   async function fetchRelease() {
     try {
@@ -55,6 +65,12 @@ export default function ReleaseDetailPage({
         setRelease(data.release);
         if (!selectedStageId) {
           setSelectedStageId(data.release.currentStageId || "build");
+        }
+        if (data.release.state === "FAILED" || data.release.state === "BLOCKED") {
+          fetch(`/api/releases/${id}/recovery`)
+            .then((r) => r.json())
+            .then(setRecoveryRec)
+            .catch(() => {});
         }
       }
     } catch (err: unknown) {
@@ -381,6 +397,41 @@ export default function ReleaseDetailPage({
           </div>
         </div>
       </div>
+
+      {/* ── Rollback & Recovery Recommendation Banner ─────────────────── */}
+      {recoveryRec && (release.state === "FAILED" || release.state === "BLOCKED") && (
+        <div className="border border-red-500/30 bg-red-500/5 rounded-xl p-4 mb-6 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+              <h3 className="text-xs font-semibold text-red-300">
+                Automated Recovery & Rollback Advice
+              </h3>
+              <span className="text-[10px] uppercase font-mono px-2 py-0.2 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 font-bold">
+                {recoveryRec.severity}
+              </span>
+            </div>
+            {recoveryRec.previousStableRelease && (
+              <span className="text-[11px] font-mono text-zinc-400">
+                Fallback: v{recoveryRec.previousStableRelease.version} (#{recoveryRec.previousStableRelease.buildNumber})
+              </span>
+            )}
+          </div>
+
+          <p className="text-xs text-zinc-300 font-medium">
+            {recoveryRec.suggestedAction}
+          </p>
+
+          <div className="space-y-1">
+            <div className="text-[11px] font-mono text-zinc-400">Recommended Steps:</div>
+            <ul className="list-disc list-inside text-xs text-zinc-400 space-y-0.5">
+              {recoveryRec.remediationSteps.map((step, idx) => (
+                <li key={idx}>{step}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
 
       {/* ── Visual Release Pipeline (11 Stages) ─────────────────────────── */}
       <div className="border border-border bg-panel p-4 mb-6">
