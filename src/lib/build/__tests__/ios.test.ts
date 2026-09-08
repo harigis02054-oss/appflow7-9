@@ -69,7 +69,7 @@ describe("iOS Artifact Validation", () => {
 describe("Apple App Store Connect JWT Generator", () => {
   it("generates correctly structured JWT with required claims", () => {
     // Generate dummy EC private key for testing
-    const { privateKey } = crypto.generateKeyPairSync("ec", {
+    const { privateKey } = crypto.generateKeyPairSync("ec" as any, {
       namedCurve: "prime256v1",
       privateKeyEncoding: { type: "pkcs8", format: "pem" },
     });
@@ -77,7 +77,7 @@ describe("Apple App Store Connect JWT Generator", () => {
     const jwt = generateAppleJWT({
       issuerId: "test-issuer-12345",
       keyId: "KEY12345",
-      privateKey,
+      privateKey: privateKey as unknown as string,
     });
 
     const parts = jwt.split(".");

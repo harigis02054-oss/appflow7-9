@@ -79,7 +79,7 @@ export function detectCocoaPods(): { path: string | null; version: string | null
   const whichPod = tryExec("which pod");
   if (whichPod && fs.existsSync(whichPod)) {
     const ver = tryExec("pod --version");
-    return { path: whichPod, version: ver || undefined, installed: true };
+    return { path: whichPod, version: ver || null, installed: true };
   }
   const candidatePaths = [
     "/usr/local/bin/pod",
@@ -89,7 +89,7 @@ export function detectCocoaPods(): { path: string | null; version: string | null
   for (const p of candidatePaths) {
     if (fs.existsSync(p)) {
       const ver = tryExec(`"${p}" --version`);
-      return { path: p, version: ver || undefined, installed: true };
+      return { path: p, version: ver || null, installed: true };
     }
   }
   return { path: null, version: null, installed: false };

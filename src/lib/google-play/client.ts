@@ -195,7 +195,7 @@ async function createEdit(packageName: string, token: string): Promise<string> {
     );
   }
 
-  if (!res.ok) {
+  if (!res.ok || !data.id) {
     throw new GooglePlayError(
       data.error?.message || `Failed to create edit for ${packageName}`,
       res.status,
@@ -358,7 +358,7 @@ export async function publishBundle(params: {
         "Content-Length": String(bundleBuffer.length),
         "Content-Type": "application/octet-stream",
       },
-      body: bundleBuffer,
+      body: new Uint8Array(bundleBuffer),
     });
 
     const uploadText = await uploadRes.text();

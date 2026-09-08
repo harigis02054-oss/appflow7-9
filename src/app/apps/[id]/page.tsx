@@ -14,11 +14,12 @@ import {
 } from "@/lib/storage/builds";
 import { createRelease } from "@/lib/storage/releases";
 import { logActivity } from "@/lib/storage/activity";
-import type { AppRecord, BuildRecord, Repository, ReleaseTrack } from "@/lib/types";
+import type { AppRecord, BuildRecord, Repository, ReleaseTrack, Platform } from "@/lib/types";
 import { BuildConsole } from "@/components/BuildConsole";
 import { BuildModal } from "@/components/BuildModal";
 import { PublishModal } from "@/components/PublishModal";
-import { Download, ExternalLink, Terminal, Play, CheckCircle2, ShieldCheck, RefreshCw } from "lucide-react";
+import { ReleasePipelineModal } from "@/components/ReleasePipelineModal";
+import { Download, ExternalLink, Terminal, Play, CheckCircle2, ShieldCheck, RefreshCw, Layers } from "lucide-react";
 
 export default function AppDetailPage({
   params,
@@ -34,6 +35,7 @@ export default function AppDetailPage({
   // Modals & Console State
   const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
   const [buildModalPlatform, setBuildModalPlatform] = useState<Platform>("android");
+  const [isReleaseModalOpen, setIsReleaseModalOpen] = useState(false);
   const [consoleBuildId, setConsoleBuildId] = useState<string | null>(null);
   const [publishBuildId, setPublishBuildId] = useState<string | null>(null);
 
@@ -408,7 +410,7 @@ export default function AppDetailPage({
       title={app.name}
       description={app.repositoryId}
       actions={
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button variant="secondary" onClick={reanalyze} disabled={reanalyzing}>
             {reanalyzing ? "Re-analyzing…" : "Re-analyze repository"}
           </Button>
@@ -423,7 +425,7 @@ export default function AppDetailPage({
             Run iOS build
           </Button>
           <Button
-            variant="primary"
+            variant="secondary"
             onClick={() => {
               setBuildModalPlatform("android");
               setIsBuildModalOpen(true);
@@ -431,6 +433,14 @@ export default function AppDetailPage({
           >
             <Play className="w-3.5 h-3.5 mr-1.5 inline" />
             Run Android build
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => setIsReleaseModalOpen(true)}
+            className="bg-cyan-600 hover:bg-cyan-500 text-white"
+          >
+            <Layers className="w-3.5 h-3.5 mr-1.5 inline" />
+            Start Release Pipeline
           </Button>
         </div>
       }
@@ -696,7 +706,6 @@ export default function AppDetailPage({
 
                 <Button
                   variant="secondary"
-                  size="sm"
                   onClick={testAppStoreConnection}
                   disabled={testingAppStore}
                   className="w-full text-[11px] h-7"
@@ -752,6 +761,15 @@ export default function AppDetailPage({
             setConsoleBuildId(null);
             setPublishBuildId(bid);
           }}
+        />
+      )}
+
+      {/* Release Pipeline Modal */}
+      {app && (
+        <ReleasePipelineModal
+          isOpen={isReleaseModalOpen}
+          onClose={() => setIsReleaseModalOpen(false)}
+          app={app}
         />
       )}
 
