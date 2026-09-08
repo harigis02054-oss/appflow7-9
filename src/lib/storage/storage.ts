@@ -19,14 +19,20 @@ function isBrowser() {
 }
 
 class LocalStorageDriver implements StorageDriver {
+  private memoryStore: Map<string, string> = new Map();
+
   private key(collection: string) {
     return `${NAMESPACE}:${collection}`;
   }
 
   getAll<T>(collection: string): T[] {
-    if (!isBrowser()) return [];
     try {
-      const raw = window.localStorage.getItem(this.key(collection));
+      let raw: string | null = null;
+      if (isBrowser()) {
+        raw = window.localStorage.getItem(this.key(collection));
+      } else {
+        raw = this.memoryStore.get(this.key(collection)) || null;
+      }
       if (!raw) return [];
       const parsed = JSON.parse(raw);
       return Array.isArray(parsed) ? (parsed as T[]) : [];
@@ -37,21 +43,27 @@ class LocalStorageDriver implements StorageDriver {
   }
 
   setAll<T>(collection: string, items: T[]): void {
-    if (!isBrowser()) return;
     try {
-      window.localStorage.setItem(this.key(collection), JSON.stringify(items));
-      // Let same-tab listeners (e.g. a header count) know something changed.
-      window.dispatchEvent(
-        new CustomEvent("appflow:storage-change", { detail: { collection } })
-      );
+      const serialized = JSON.stringify(items);
+      if (isBrowser()) {
+        window.localStorage.setItem(this.key(collection), serialized);
+        window.dispatchEvent(
+          new CustomEvent("appflow:storage-change", { detail: { collection } })
+        );
+      } else {
+        this.memoryStore.set(this.key(collection), serialized);
+      }
     } catch (err) {
       console.error(`[storage] failed to write "${collection}"`, err);
     }
   }
 
   clear(collection: string): void {
-    if (!isBrowser()) return;
-    window.localStorage.removeItem(this.key(collection));
+    if (isBrowser()) {
+      window.localStorage.removeItem(this.key(collection));
+    } else {
+      this.memoryStore.delete(this.key(collection));
+    }
   }
 }
 

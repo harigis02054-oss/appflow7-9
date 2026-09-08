@@ -42,7 +42,7 @@ export function saveRelease(release: ReleaseModel): void {
   } else {
     releases.push(release);
   }
-  const tempFile = `${RELEASES_FILE}.tmp.${Date.now()}`;
+  const tempFile = `${RELEASES_FILE}.tmp.${Date.now()}.${Math.random().toString(36).slice(2, 6)}`;
   fs.writeFileSync(tempFile, JSON.stringify(releases, null, 2), "utf-8");
   fs.renameSync(tempFile, RELEASES_FILE);
 }
