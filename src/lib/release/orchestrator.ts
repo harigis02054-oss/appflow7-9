@@ -11,6 +11,7 @@ import type {
 import {
   saveRelease,
   getRelease,
+  listReleases,
   updateRelease,
   appendReleaseAudit,
   appendReleaseStageLog,
@@ -275,3 +276,156 @@ export async function advanceReleaseToBuild(
     return { success: false, error: msg };
   }
 }
+
+/**
+ * Checks whether an identical active or released package already exists (Finding: Release Idempotency).
+ * Prevents accidental duplicated releases of the same version/build/commit combination.
+ */
+export function checkReleaseIdempotency(params: {
+  appId: string;
+  platform: Platform;
+  version: string;
+  buildNumber: number;
+}): { isDuplicate: boolean; existingRelease?: ReleaseModel } {
+  const allReleases = listReleases(params.appId);
+  const match = allReleases.find(
+    (r) =>
+      r.platform === params.platform &&
+      r.version === params.version &&
+      r.buildNumber === params.buildNumber &&
+      r.state !== "FAILED" &&
+      r.state !== "CANCELLED"
+  );
+
+  return {
+    isDuplicate: Boolean(match),
+    existingRelease: match,
+  };
+}
+
+/**
+ * Cancels a running release pipeline and terminates any underlying compilation processes.
+ */
+export function cancelReleasePipeline(
+  releaseId: string,
+  actor = "System"
+): boolean {
+  const release = getRelease(releaseId);
+  if (!release) return false;
+
+  // Terminate active build worker if one is running
+  if (release.buildId) {
+    try {
+      const { cancelServerBuild } = require("../build/store");
+      cancelServerBuild(release.buildId);
+    } catch {
+      // Best-effort child process kill
+    }
+  }
+
+  // Mark currently active stage as cancelled/failed
+  const activeStage = release.stages.find((s) => s.status === "running");
+  if (activeStage) {
+    activeStage.status = "failed";
+    activeStage.error = "Cancelled by user";
+    activeStage.completedAt = new Date().toISOString();
+  }
+
+  transitionReleaseStage(releaseId, release.currentStageId, "failed", {
+    nextState: "CANCELLED",
+    actor,
+    log: "Release pipeline was cancelled by user request.",
+  });
+
+  return true;
+}
+
+/**
+ * Retries a failed or cancelled release from the last failed stage.
+ */
+export async function retryReleasePipeline(
+  releaseId: string,
+  actor = "System"
+): Promise<{ success: boolean; error?: string }> {
+  const release = getRelease(releaseId);
+  if (!release) return { success: false, error: "Release not found" };
+
+  if (release.state !== "FAILED" && release.state !== "CANCELLED") {
+    return {
+      success: false,
+      error: `Cannot retry release in '${release.state}' state. Only FAILED or CANCELLED releases can be retried.`,
+    };
+  }
+
+  // Reset failed stages to pending
+  for (const stage of release.stages) {
+    if (stage.status === "failed") {
+      stage.status = "pending";
+      delete stage.error;
+    }
+  }
+
+  appendReleaseAudit(releaseId, {
+    actor,
+    action: "Retrying Release Pipeline",
+    details: "Reset failed stages and restarted pipeline execution.",
+    fromState: release.state,
+    toState: "VALIDATED",
+  });
+
+  release.state = "VALIDATED";
+  release.currentStageId = "build";
+  saveRelease(release);
+
+  return advanceReleaseToBuild(releaseId, actor);
+}
+
+/**
+ * Handles asynchronous store processing status updates (e.g. Google Play or TestFlight ingestion).
+ */
+export function updateStoreProcessingState(
+  releaseId: string,
+  status: "processing" | "valid" | "failed",
+  details?: { error?: string; internalTestingUrl?: string; publicUrl?: string }
+): ReleaseModel | null {
+  const release = getRelease(releaseId);
+  if (!release) return null;
+
+  if (status === "processing") {
+    transitionReleaseStage(releaseId, "process", "running", {
+      nextState: "PROCESSING",
+      log: "Binary package uploaded. Waiting for store automated validation and processing...",
+    });
+    updateRelease(releaseId, { storeProcessingStatus: "processing" });
+  } else if (status === "valid") {
+    transitionReleaseStage(releaseId, "process", "success", {
+      nextState: "READY_FOR_TESTING",
+      log: "Store processing completed successfully. Binary is valid.",
+    });
+
+    transitionReleaseStage(releaseId, "testing-track", "success", {
+      nextState: "READY_FOR_TESTING",
+      log: "Release is live on testing track.",
+    });
+
+    updateRelease(releaseId, {
+      storeProcessingStatus: "valid",
+      storeLinks: {
+        internalTestingUrl: details?.internalTestingUrl,
+        publicUrl: details?.publicUrl,
+      },
+    });
+  } else if (status === "failed") {
+    transitionReleaseStage(releaseId, "process", "failed", {
+      nextState: "FAILED",
+      error: details?.error || "Store processing rejected the binary package.",
+    });
+    updateRelease(releaseId, {
+      storeProcessingStatus: "failed",
+      errorSummary: details?.error,
+    });
+  }
+
+  return getRelease(releaseId);
+}
+

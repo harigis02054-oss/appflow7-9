@@ -90,6 +90,36 @@ export default function ReleaseDetailPage({
     }
   }
 
+  async function handleCancelRelease() {
+    if (!confirm("Are you sure you want to cancel this active release pipeline?")) return;
+    try {
+      const res = await fetch(`/api/releases/${id}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actor: "Team Member" }),
+      });
+      if (res.ok) {
+        await fetchRelease();
+      }
+    } catch {}
+  }
+
+  async function handleRetryRelease() {
+    try {
+      const res = await fetch(`/api/releases/${id}/retry`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actor: "Team Member" }),
+      });
+      if (res.ok) {
+        await fetchRelease();
+      } else {
+        const d = await res.json();
+        alert(d.error || "Failed to retry release pipeline");
+      }
+    } catch {}
+  }
+
   if (loading) {
     return (
       <PageShell title="Release Pipeline" description="Loading release details...">
@@ -175,6 +205,26 @@ export default function ReleaseDetailPage({
             >
               <Play className="w-3.5 h-3.5 mr-1.5" />
               {advancing ? "Triggering..." : "Start Pipeline & Build"}
+            </Button>
+          )}
+          {(release.state === "BUILDING" || release.state === "ANALYZING") && (
+            <Button
+              variant="danger"
+              onClick={handleCancelRelease}
+              className="text-xs h-8 bg-signal-danger/10 border-signal-danger/30 text-signal-danger hover:bg-signal-danger/20"
+            >
+              <XCircle className="w-3.5 h-3.5 mr-1.5" />
+              Cancel Release
+            </Button>
+          )}
+          {(release.state === "FAILED" || release.state === "CANCELLED") && (
+            <Button
+              variant="primary"
+              onClick={handleRetryRelease}
+              className="text-xs h-8 bg-signal-warning text-black hover:bg-signal-warning/90"
+            >
+              <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+              Retry Pipeline
             </Button>
           )}
           {release.buildId && (
@@ -399,6 +449,68 @@ export default function ReleaseDetailPage({
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Policy & Release Readiness Gates ───────────────────────── */}
+      <div className="border border-border bg-panel p-4 mb-6">
+        <h3 className="text-xs font-mono uppercase text-text-muted mb-3 flex items-center gap-1.5">
+          <Shield className="w-3.5 h-3.5 text-signal-info" />
+          Release Policy & Store Readiness Gates
+        </h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="p-3 border border-border bg-panel-raised/40 rounded">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[11px] font-mono uppercase text-text-muted">1. Development Gate</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-signal-success/10 text-signal-success border border-signal-success/30">
+                ALLOWED
+              </span>
+            </div>
+            <div className="text-[11px] text-text font-medium">Local Compilation</div>
+            <p className="text-[10px] text-text-muted mt-1 leading-relaxed">
+              Source code, build manifests, and local developer toolchain are valid.
+            </p>
+          </div>
+
+          <div className="p-3 border border-border bg-panel-raised/40 rounded">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[11px] font-mono uppercase text-text-muted">2. Testing Gate</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-signal-success/10 text-signal-success border border-signal-success/30">
+                ALLOWED
+              </span>
+            </div>
+            <div className="text-[11px] text-text font-medium">Internal & TestFlight</div>
+            <p className="text-[10px] text-text-muted mt-1 leading-relaxed">
+              Verified package identifier and code signing. Eligible for tester distribution.
+            </p>
+          </div>
+
+          <div className="p-3 border border-border bg-panel-raised/40 rounded">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[11px] font-mono uppercase text-text-muted">3. Store Submission</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-signal-warning/10 text-signal-warning border border-signal-warning/30">
+                WARNING
+              </span>
+            </div>
+            <div className="text-[11px] text-text font-medium">Review Preparation</div>
+            <p className="text-[10px] text-text-muted mt-1 leading-relaxed">
+              External beta review requires active Privacy Policy URL and app descriptions.
+            </p>
+          </div>
+
+          <div className="p-3 border border-border bg-panel-raised/40 rounded">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[11px] font-mono uppercase text-text-muted">4. Production Gate</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-signal-warning/10 text-signal-warning border border-signal-warning/30">
+                BLOCKED
+              </span>
+            </div>
+            <div className="text-[11px] text-text font-medium">Public Store Rollout</div>
+            <p className="text-[10px] text-signal-warning mt-1 leading-relaxed">
+              Missing required production information. You may continue with build/testing.
+            </p>
           </div>
         </div>
       </div>
