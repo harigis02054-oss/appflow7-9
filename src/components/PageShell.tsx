@@ -1,4 +1,5 @@
 import { Sidebar } from "./Sidebar";
+import { NotificationBell } from "./NotificationBell";
 
 export function PageShell({
   title,
@@ -24,7 +25,10 @@ export function PageShell({
               </p>
             )}
           </div>
-          {actions}
+          <div className="flex items-center gap-3">
+            <NotificationBell />
+            {actions}
+          </div>
         </header>
         <main className="p-6">{children}</main>
       </div>

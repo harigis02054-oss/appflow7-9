@@ -17,6 +17,7 @@ import {
   appendReleaseStageLog,
 } from "./store";
 import { runBuildPipeline } from "../build/engine";
+import { hasPermission, type TeamRole } from "../team/types";
 
 export function getDefaultReleaseStages(): ReleaseStage[] {
   return [
@@ -501,5 +502,66 @@ export async function executeReleaseUpload(
 
   const updated = getRelease(releaseId);
   return { success: true, release: updated };
+}
+
+/**
+ * Evaluates and records QA/Release Manager sign-off on a release candidate.
+ */
+export function recordReleaseApproval(
+  releaseId: string,
+  input: {
+    decision: "approved" | "rejected";
+    notes?: string;
+    actor: string;
+    role?: TeamRole;
+  }
+): { success: boolean; release?: ReleaseModel | null; error?: string } {
+  const release = getRelease(releaseId);
+  if (!release) {
+    return { success: false, error: `Release ${releaseId} not found.` };
+  }
+
+  // Check RBAC permissions if role is supplied
+  if (input.role && !hasPermission(input.role, "approve_release")) {
+    return {
+      success: false,
+      error: `Role '${input.role}' is not authorized to approve releases. QA, Release Manager, Admin, or Owner role required.`,
+    };
+  }
+
+  if (input.decision === "approved") {
+    transitionReleaseStage(releaseId, "approve", "success", {
+      actor: input.actor,
+      log: `Release approved by ${input.actor} (${input.role || "Approver"}). Notes: ${input.notes || "Ready for distribution"}`,
+    });
+
+    updateRelease(releaseId, {
+      approvalStatus: "approved",
+    });
+
+    // If target track is production, also advance production stage
+    if (release.track === "production" || release.track === "app-store") {
+      transitionReleaseStage(releaseId, "production", "success", {
+        nextState: "RELEASED",
+        actor: input.actor,
+        log: "Production distribution unlocked and finalized.",
+      });
+    }
+
+    return { success: true, release: getRelease(releaseId) };
+  } else {
+    transitionReleaseStage(releaseId, "approve", "failed", {
+      nextState: "BLOCKED",
+      actor: input.actor,
+      error: input.notes || "Release rejected during sign-off review.",
+    });
+
+    updateRelease(releaseId, {
+      approvalStatus: "rejected",
+      errorSummary: input.notes || "Release approval rejected.",
+    });
+
+    return { success: true, release: getRelease(releaseId) };
+  }
 }
 

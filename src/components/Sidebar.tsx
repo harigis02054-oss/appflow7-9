@@ -9,6 +9,8 @@ import {
   Hammer,
   Rocket,
   KeyRound,
+  Users,
+  Zap,
   Activity,
   Settings,
 } from "lucide-react";
@@ -19,6 +21,8 @@ const NAV = [
   { href: "/github", label: "GitHub", icon: GitBranch },
   { href: "/builds", label: "Builds", icon: Hammer },
   { href: "/releases", label: "Releases", icon: Rocket },
+  { href: "/automations", label: "Automations", icon: Zap },
+  { href: "/team", label: "Team", icon: Users },
   { href: "/credentials", label: "Credentials", icon: KeyRound },
   { href: "/activity", label: "Activity", icon: Activity },
   { href: "/settings", label: "Settings", icon: Settings },

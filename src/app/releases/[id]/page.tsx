@@ -22,6 +22,9 @@ import {
   User,
   Calendar,
   Layers,
+  UploadCloud,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 
 export default function ReleaseDetailPage({
@@ -102,6 +105,62 @@ export default function ReleaseDetailPage({
         await fetchRelease();
       }
     } catch {}
+  }
+
+  const [uploading, setUploading] = useState(false);
+  const [approving, setApproving] = useState(false);
+
+  async function handleStoreUpload() {
+    setUploading(true);
+    try {
+      const res = await fetch(`/api/releases/${id}/upload`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actor: "Release Manager" }),
+      });
+      if (res.ok) {
+        await fetchRelease();
+      } else {
+        const d = await res.json();
+        alert(d.error || "Failed to upload release to store");
+      }
+    } catch {
+      alert("Network error during store upload");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleApproveRelease(decision: "approved" | "rejected") {
+    const notes = prompt(
+      decision === "approved"
+        ? "Enter optional approval sign-off notes:"
+        : "Enter reason for rejection:"
+    );
+    if (decision === "rejected" && notes === null) return;
+    setApproving(true);
+    try {
+      const res = await fetch(`/api/releases/${id}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          decision,
+          notes: notes || undefined,
+          actor: "QA Lead",
+          role: "qa",
+        }),
+      });
+      if (res.ok) {
+        await fetchRelease();
+      } else {
+        const d = await res.json();
+        alert(d.error || "Approval failed");
+      }
+    } catch {
+      alert("Network error during approval");
+    } finally {
+      setApproving(false);
+    }
   }
 
   async function handleRetryRelease() {
@@ -234,6 +293,44 @@ export default function ReleaseDetailPage({
                 Build Console
               </Button>
             </Link>
+          )}
+          {release.artifactPath &&
+            release.stages.find((s) => s.id === "upload")?.status !== "success" &&
+            release.state !== "FAILED" &&
+            release.state !== "CANCELLED" && (
+              <Button
+                variant="primary"
+                onClick={handleStoreUpload}
+                disabled={uploading}
+                className="text-xs h-8 bg-indigo-600 hover:bg-indigo-500 text-white"
+              >
+                <UploadCloud className="w-3.5 h-3.5 mr-1.5" />
+                {uploading ? "Uploading..." : "Upload to Store"}
+              </Button>
+            )}
+          {(release.state === "READY_FOR_REVIEW" ||
+            release.currentStageId === "approve" ||
+            release.stages.find((s) => s.id === "approve")?.status === "running") && (
+            <>
+              <Button
+                variant="primary"
+                onClick={() => handleApproveRelease("approved")}
+                disabled={approving}
+                className="text-xs h-8 bg-emerald-600 hover:bg-emerald-500 text-white"
+              >
+                <ThumbsUp className="w-3.5 h-3.5 mr-1.5" />
+                {approving ? "Approving..." : "Approve Release"}
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => handleApproveRelease("rejected")}
+                disabled={approving}
+                className="text-xs h-8 bg-red-600/20 border-red-500/30 text-red-400 hover:bg-red-600/30"
+              >
+                <ThumbsDown className="w-3.5 h-3.5 mr-1.5" />
+                Reject
+              </Button>
+            </>
           )}
         </div>
       }
